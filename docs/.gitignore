@@ -1,0 +1,14 @@
+main.aux
+main.bbl
+main.bcf
+main.blg
+main.lof
+main.log
+main.out
+main.pdf
+main.run.xml
+.DS_Store
+main.fdb_latexmk
+main.fls
+main.synctex.gz
+indent.log
