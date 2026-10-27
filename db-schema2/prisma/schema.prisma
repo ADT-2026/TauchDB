@@ -196,7 +196,6 @@ model Booking {
   session_id       Int?
   trip_id          Int?
   booked_at        DateTime      @default(now()) @db.Timestamptz(3)
-  price_at_booking Decimal       @db.Decimal(10, 2)
   booking_status   BookingStatus @default(confirmed)
   passed_at        DateTime?     @db.Timestamptz(3)  // ersetzt completion_status
 
@@ -307,8 +306,8 @@ model EquipmentMaintenance {
 model Invoice {
   id             Int       @id @default(autoincrement())
   customer_id    Int
-  booking_id     Int?
-  rental_id      Int?
+  booking_id     Int?      @unique
+  rental_id      Int?      @unique
   invoice_number String    @unique
   total_amount   Decimal   @db.Decimal(10, 2)
   issued_at      DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date

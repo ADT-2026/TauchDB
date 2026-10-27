@@ -128,7 +128,6 @@ CREATE TABLE "bookings" (
     "session_id" INTEGER,
     "trip_id" INTEGER,
     "booked_at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "price_at_booking" DECIMAL(10,2) NOT NULL,
     "booking_status" "BookingStatus" NOT NULL DEFAULT 'confirmed',
     "passed_at" TIMESTAMPTZ(3),
 
@@ -296,6 +295,12 @@ CREATE UNIQUE INDEX "equipment_maintenance_allocation_id_key" ON "equipment_main
 
 -- CreateIndex
 CREATE UNIQUE INDEX "equipment_maintenance_allocation_id_allocation_type_key" ON "equipment_maintenance"("allocation_id", "allocation_type");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "invoices_booking_id_key" ON "invoices"("booking_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "invoices_rental_id_key" ON "invoices"("rental_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "invoices_invoice_number_key" ON "invoices"("invoice_number");
