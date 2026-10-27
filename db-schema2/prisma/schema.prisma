@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Enums ----------
+
+enum BookingStatus {
+  confirmed
+  cancelled
+}
+
+enum ScheduleStatus {
+  planned
+  completed
+  cancelled
+}
+
+enum EquipmentCondition {
+  new
+  good
+  worn
+  defective
+}
+
+enum AllocationType {
+  rental
+  assignment
+  maintenance
+}
+
+enum AllocationStatus {
+  active
+  cancelled
+  completed
+}
+
+// ---------- Personen ----------
+
+model Customer {
+  id         Int       @id @default(autoincrement())
+  first_name String
+  last_name  String
+  email      String    @unique
+  phone      String?
+  birth_date DateTime? @db.Date
+  created_at DateTime  @default(now()) @db.Timestamptz(3)
+
+  bookings       Booking[]
+  certifications CustomerCertification[]
+  rentals        EquipmentRental[]
+  invoices       Invoice[]
+
+  @@map("customers")
+}
+
+model Instructor {
+  id         Int     @id @default(autoincrement())
+  first_name String
+  last_name  String
+  email      String  @unique
+  active     Boolean @default(true)
+
+  certifications InstructorCertification[]
+  sessions       CourseSession[]
+  trips          DiveTrip[]
+
+  @@map("instructors")
+}
+
+// ---------- Zertifizierungen ----------
+
+model Certification {
+  id           Int     @id @default(autoincrement())
+  name         String
+  organization String
+  description  String?
+
+  customer_certifications   CustomerCertification[]
+  instructor_certifications InstructorCertification[]
+  required_by_courses       Course[]
+  required_by_sites         DiveSite[]
+
+  @@unique([name, organization])
+  @@map("certifications")
+}
+
+model CustomerCertification {
+  id                 Int       @id @default(autoincrement())
+  customer_id        Int
+  certification_id   Int
+  certificate_number String
+  issued_at          DateTime  @db.Date
+  expires_at         DateTime? @db.Date
+
+  customer      Customer      @relation(fields: [customer_id], references: [id])
+  certification Certification @relation(fields: [certification_id], references: [id])
+
+  // Nummer nur pro Zertifizierung eindeutig (verschiedene Organisationen)
+  @@unique([certification_id, certificate_number])
+  @@index([customer_id, certification_id])
+  @@map("customer_certifications")
+}
+
+model InstructorCertification {
+  id               Int       @id @default(autoincrement())
+  instructor_id    Int
+  certification_id Int
+  issued_at        DateTime  @db.Date
+  expires_at       DateTime? @db.Date
+
+  instructor    Instructor    @relation(fields: [instructor_id], references: [id])
+  certification Certification @relation(fields: [certification_id], references: [id])
+
+  @@unique([instructor_id, certification_id])
+  @@map("instructor_certifications")
+}
+
+// ---------- Angebote ----------
+
+model Course {
+  id                        Int     @id @default(autoincrement())
+  name                      String
+  description               String?
+  price                     Decimal @db.Decimal(10, 2)
+  duration_days             Int
+  required_certification_id Int?
+
+  required_certification Certification? @relation(fields: [required_certification_id], references: [id])
+  sessions               CourseSession[]
+
+  @@index([required_certification_id])
+  @@map("courses")
+}
+
+model CourseSession {
+  id               Int            @id @default(autoincrement())
+  course_id        Int
+  instructor_id    Int
+  start_time       DateTime       @db.Timestamptz(3)
+  end_time         DateTime       @db.Timestamptz(3)
+  max_participants Int
+  status           ScheduleStatus @default(planned)
+
+  course     Course     @relation(fields: [course_id], references: [id])
+  instructor Instructor @relation(fields: [instructor_id], references: [id])
+  bookings   Booking[]
+
+  @@index([course_id])
+  @@index([instructor_id, start_time])
+  @@map("course_sessions")
+}
+
+model DiveSite {
+  id                        Int     @id @default(autoincrement())
+  name                      String
+  location                  String
+  max_depth_meters          Int
+  description               String?
+  required_certification_id Int?
+
+  required_certification Certification? @relation(fields: [required_certification_id], references: [id])
+  trips                  DiveTrip[]
+
+  @@index([required_certification_id])
+  @@map("dive_sites")
+}
+
+model DiveTrip {
+  id               Int            @id @default(autoincrement())
+  site_id          Int
+  instructor_id    Int
+  start_time       DateTime       @db.Timestamptz(3)
+  end_time         DateTime       @db.Timestamptz(3)
+  max_participants Int
+  price            Decimal        @db.Decimal(10, 2)
+  status           ScheduleStatus @default(planned)
+
+  site       DiveSite   @relation(fields: [site_id], references: [id])
+  instructor Instructor @relation(fields: [instructor_id], references: [id])
+  bookings   Booking[]
+
+  @@index([site_id])
+  @@index([instructor_id, start_time])
+  @@map("dive_trips")
+}
+
+// ---------- Buchungen (Kurs ODER Trip) ----------
+
+model Booking {
+  id               Int           @id @default(autoincrement())
+  customer_id      Int
+  session_id       Int?
+  trip_id          Int?
+  booked_at        DateTime      @default(now()) @db.Timestamptz(3)
+  price_at_booking Decimal       @db.Decimal(10, 2)
+  booking_status   BookingStatus @default(confirmed)
+  passed_at        DateTime?     @db.Timestamptz(3)  // ersetzt completion_status
+
+  customer Customer       @relation(fields: [customer_id], references: [id])
+  session  CourseSession? @relation(fields: [session_id], references: [id], onDelete: Restrict)
+  trip     DiveTrip?      @relation(fields: [trip_id], references: [id], onDelete: Restrict)
+
+  equipment_assignments EquipmentAssignment[]
+  invoices              Invoice[]
+
+  @@index([session_id])
+  @@index([trip_id])
+  @@map("bookings")
+}
+
+// ---------- Ausrüstung ----------
+
+model Equipment {
+  id               Int                @id @default(autoincrement())
+  inventory_number String             @unique
+  equipment_type   String
+  manufacturer     String?
+  model            String?
+  size             String?
+  condition        EquipmentCondition @default(good)
+  purchased_at     DateTime?          @db.Date
+  retired_at       DateTime?          @db.Date  // ersetzt status
+
+  allocations EquipmentAllocation[]
+
+  @@index([equipment_type, retired_at])
+  @@map("equipment")
+}
+
+model EquipmentAllocation {
+  id              Int              @id @default(autoincrement())
+  equipment_id    Int
+  start_at        DateTime         @db.Timestamptz(3)
+  end_at          DateTime         @db.Timestamptz(3)
+  allocation_type AllocationType
+  status          AllocationStatus @default(active)
+  created_at      DateTime         @default(now()) @db.Timestamptz(3)
+
+  equipment Equipment @relation(fields: [equipment_id], references: [id])
+
+  rental      EquipmentRental?
+  assignment  EquipmentAssignment?
+  maintenance EquipmentMaintenance?
+
+  @@unique([id, allocation_type])
+  @@index([equipment_id])
+  @@index([start_at, end_at])
+  @@map("equipment_allocations")
+}
+
+model EquipmentRental {
+  id              Int            @id @default(autoincrement())
+  allocation_id   Int            @unique
+  allocation_type AllocationType @default(rental)
+  customer_id     Int
+  price           Decimal        @db.Decimal(10, 2)
+  returned_at     DateTime?      @db.Timestamptz(3)
+  created_at      DateTime       @default(now()) @db.Timestamptz(3)
+
+  allocation EquipmentAllocation @relation(fields: [allocation_id, allocation_type], references: [id, allocation_type])
+  customer   Customer            @relation(fields: [customer_id], references: [id])
+
+  invoices Invoice[]
+
+  @@unique([allocation_id, allocation_type])
+  @@index([customer_id])
+  @@map("equipment_rentals")
+}
+
+model EquipmentAssignment {
+  id              Int            @id @default(autoincrement())
+  allocation_id   Int            @unique
+  allocation_type AllocationType @default(assignment)
+  booking_id      Int
+  returned_at     DateTime?      @db.Timestamptz(3)
+  created_at      DateTime       @default(now()) @db.Timestamptz(3)
+
+  allocation EquipmentAllocation @relation(fields: [allocation_id, allocation_type], references: [id, allocation_type])
+  booking    Booking             @relation(fields: [booking_id], references: [id])
+
+  @@unique([allocation_id, allocation_type])
+  @@index([booking_id])
+  @@map("equipment_assignments")
+}
+
+model EquipmentMaintenance {
+  id               Int            @id @default(autoincrement())
+  allocation_id    Int            @unique
+  allocation_type  AllocationType @default(maintenance)
+  description      String
+  cost             Decimal        @db.Decimal(10, 2)
+  next_maintenance DateTime?      @db.Date
+  created_at       DateTime       @default(now()) @db.Timestamptz(3)
+
+  allocation EquipmentAllocation @relation(fields: [allocation_id, allocation_type], references: [id, allocation_type])
+
+  @@unique([allocation_id, allocation_type])
+  @@map("equipment_maintenance")
+}
+
+// ---------- Rechnungen ----------
+
+model Invoice {
+  id             Int       @id @default(autoincrement())
+  customer_id    Int
+  booking_id     Int?
+  rental_id      Int?
+  invoice_number String    @unique
+  total_amount   Decimal   @db.Decimal(10, 2)
+  issued_at      DateTime  @default(dbgenerated("CURRENT_DATE")) @db.Date
+  due_at         DateTime  @db.Date
+  paid_at        DateTime? @db.Timestamptz(3)  // ersetzt status
+
+  customer Customer         @relation(fields: [customer_id], references: [id])
+  booking  Booking?         @relation(fields: [booking_id], references: [id], onDelete: Restrict)
+  rental   EquipmentRental? @relation(fields: [rental_id], references: [id], onDelete: Restrict)
+
+  @@index([customer_id])
+  @@index([booking_id])
+  @@index([rental_id])
+  @@index([paid_at, due_at])
+  @@map("invoices")
+}
