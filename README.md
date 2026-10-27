@@ -1,283 +1,240 @@
-# TauchDB
-Verwaltung einer Tauchschule
-# Anforderungsdefinition – DiveManager
-**Projekt:** Digitales Verwaltungssystem für eine Tauchschule  
+# TauchDB – DiveManager
+
+**Datenbankgestütztes Verwaltungssystem für eine Tauchschule**
+
+Hochschulprojekt im Modul **Advanced Databases**.
+
+DiveManager bildet die zentralen Verwaltungsprozesse einer Tauchschule in einer relationalen PostgreSQL-Datenbank ab. Der Schwerpunkt liegt auf Datenmodellierung, referenzieller Integrität, Transaktionssicherheit und der Umsetzung komplexer Geschäftsregeln.
+
+## 1. Projektüberblick
+
+Das System unterstützt die Verwaltung von Kunden, Tauchlehrern, Zertifizierungen, Tauchkursen, Tauchausflügen, Ausrüstungsgegenständen, Wartungen, Vermietungen und Rechnungen.
+
+**Technologien:**
+- PostgreSQL als relationales Datenbankmanagementsystem
+- Prisma ORM 7 zur Definition des Datenmodells und Verwaltung der Migrationen
+- Supabase für die PostgreSQL-Entwicklungsumgebung
+- Docker zur lokalen Bereitstellung
+- SQL, PL/pgSQL, Trigger und Constraints zur Sicherstellung der Datenintegrität
+
+**Aktueller Datenbankentwurf:** 16 relationale Tabellen.
+
+Eine vollständige Benutzeroberfläche ist derzeit nicht Bestandteil des primären Projektumfangs.
+
+## 2. Datenbankmodell
+
+Das Datenmodell umfasst folgende 16 Tabellen:
+
+| Tabelle | Beschreibung |
+|---|---|
+| `customers` | Kundenstammdaten |
+| `instructors` | Tauchlehrer |
+| `certifications` | Zertifizierungstypen |
+| `customer_certifications` | Zertifizierungen von Kunden |
+| `instructor_certifications` | Qualifikationen der Tauchlehrer |
+| `courses` | Kursarten, Preise und Voraussetzungen |
+| `course_sessions` | Konkrete Kurstermine |
+| `dive_sites` | Tauchplätze |
+| `dive_trips` | Organisierte Tauchausflüge |
+| `bookings` | Kurs- und Ausflugsbuchungen |
+| `equipment` | Ausrüstungsinventar |
+| `equipment_allocations` | Zentrale zeitliche Ausrüstungsbelegungen |
+| `equipment_rentals` | Ausrüstungsvermietungen |
+| `equipment_assignments` | Ausrüstungszuweisungen zu Buchungen |
+| `equipment_maintenance` | Wartungs- und Reparaturvorgänge |
+| `invoices` | Rechnungen |
+
+### Zentrale Modellierungsentscheidungen
+
+**Einheitliche Buchungen:** Kursbuchungen und Ausflugsanmeldungen werden in der Tabelle `bookings` verwaltet. Jede Buchung gehört genau zu einem Kurstermin oder Tauchausflug.
+
+**Zentrale Ausrüstungsverwaltung:** Die Tabelle `equipment_allocations` verwaltet zeitliche Belegungen für Vermietung, Buchungszuweisung und Wartung. Die jeweiligen Detailinformationen befinden sich in separaten Tabellen.
+
+**Zertifizierungsverwaltung:** Zertifikate von Kunden und Tauchlehrern werden getrennt gespeichert. Für Kurse und Tauchplätze können erforderliche Zertifizierungen hinterlegt werden.
+
+**Rechnungsstellung:** Rechnungen werden genau einer Buchung oder einer Ausrüstungsmiete zugeordnet. Das Modell unterstützt derzeit einzelne Rechnungen pro Leistung und bildet einen Zahlungszeitpunkt über `paid_at` ab.
+
+## 3. Datenintegrität und Geschäftsregeln
+
+Das Datenbankschema verwendet Primärschlüssel, Fremdschlüssel, UNIQUE-Indizes und CHECK-Constraints. Zusätzlich werden PostgreSQL-spezifische Mechanismen zur Sicherstellung komplexerer Geschäftsregeln eingesetzt.
+
+### 3.1 Buchungsverwaltung
+
+Die SQL-Migration enthält einen Trigger, der bei der Erstellung und bei bestimmten Änderungen von Buchungen die zulässige Teilnehmerkapazität überprüft.
+
+Außerdem wird kontrolliert, ob ein Kunde zum Beginn der Veranstaltung über die erforderliche gültige Zertifizierung verfügt.
+
+Partielle UNIQUE-Indizes verhindern, dass ein Kunde denselben Kurstermin oder Tauchausflug mehrfach aktiv bucht. Nach einer Stornierung kann eine neue Buchung ermöglicht werden.
+
+### 3.2 Verfügbarkeit von Tauchlehrern
+
+Die Datenbank verhindert zeitliche Überschneidungen innerhalb der Kurstermine beziehungsweise innerhalb der Tauchausflüge mithilfe von Exclusion-Constraints.
+
+Ein zusätzlicher Trigger prüft Überschneidungen zwischen Kursen und Tauchausflügen, damit ein Tauchlehrer nicht zeitgleich für verschiedene Veranstaltungen eingeplant wird.
+
+### 3.3 Ausrüstungsbelegung
+
+Für `equipment_allocations` wird ein PostgreSQL-Exclusion-Constraint eingesetzt.
+
+Dadurch dürfen für denselben Ausrüstungsgegenstand keine zeitlich überlappenden, nicht stornierten Belegungen entstehen.
+
+Die Detailtabellen `equipment_rentals`, `equipment_assignments` und `equipment_maintenance` verwenden typgebundene Fremdschlüssel und CHECK-Constraints, um ihre Zuordnung zu passenden Belegungen abzusichern.
+
+### 3.4 Rechnungsverwaltung
+
+Jede Rechnung muss genau einer kostenpflichtigen Leistung zugeordnet sein: entweder einer Buchung oder einer Ausrüstungsmiete.
+
+Ein CHECK-Constraint mit `num_nonnulls(booking_id, rental_id) = 1` erzwingt diese Regel.
+
+Zusätzlich überprüft ein Trigger, ob der Rechnungskunde mit dem Kunden der zugehörigen Buchung oder Miete übereinstimmt.
+
+### 3.5 Weitere Integritätsregeln
+
+Das Datenbankschema enthält unter anderem Prüfungen für:
+
+- positive Teilnehmerkapazitäten,
+- gültige Zeitintervalle,
+- nichtnegative Preise und Kosten,
+- konsistente Zertifikats- und Rechnungsdaten,
+- case-insensitive eindeutige E-Mail-Adressen,
+- zeitlich überschneidende Kundenzertifikate.
+
+Row Level Security (RLS) ist für die Tabellen aktiviert. Eigene RLS-Policies für direkte Client-Zugriffe sind in den aktuellen Migrationen noch nicht definiert.
+
+## 4. Projektstruktur
+
+```text
+TauchDB/
+├── README.md
+└── db/
+    ├── prisma/
+    │   ├── schema.prisma
+    │   └── migrations/
+    │       ├── 20261027162418_init/
+    │       └── 20261027162424_constraints_and_triggers/
+    ├── prisma7.config.ts
+    ├── package.json
+    ├── package-lock.json
+    └── supabase/
+        ├── config.toml
+        ├── Initial_Setup.md
+        └── Supabase_Usage.md
+```
+
+Das verbindliche Prisma-Datenmodell befindet sich in `db/prisma/schema.prisma`.
+
+Die SQL-Migrationen enthalten zusätzliche Constraints und Trigger, die nicht vollständig durch Prisma selbst dargestellt werden können.
+
+## 5. Lokale Entwicklungsumgebung
+
+### Voraussetzungen
+
+- Node.js 20 oder neuer
+- npm
+- Docker Desktop
+
+### Installation
+
+Repository klonen:
+
+```bash
+git clone https://github.com/ADT-2026/TauchDB.git
+cd TauchDB/db
+```
+
+Abhängigkeiten installieren:
+
+```bash
+npm install
+```
+
+Lokale Supabase-Umgebung starten:
+
+```bash
+npx supabase start
+```
+
+Verbindungsinformationen anzeigen:
+
+```bash
+npx supabase status
+```
+
+Eine lokale Datei `db/.env` mit den benötigten Datenbankverbindungen anlegen. Die Prisma-Konfiguration verwendet `DIRECT_URL`.
+
+Für das standardmäßige lokale Supabase-Setup kann folgende Konfiguration verwendet werden:
+
+```dotenv
+DIRECT_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+```
+
+**Wichtig:** Echte Zugangsdaten und `.env`-Dateien dürfen nicht in Git eingecheckt werden.
+
+### Datenbankschema anwenden
+
+```bash
+npx prisma validate
+npx prisma migrate deploy
+npx prisma migrate status
+```
+
+Die Befehle aus dem Verzeichnis `db/` ausführen.
+
+Die Migrationen sind für das aktuelle 16-Tabellen-Schema ausgelegt. Bei bestehenden Datenbanken ist vor der Anwendung eine Prüfung der bisherigen Struktur und des Migrationsverlaufs erforderlich.
+
+Weitere Informationen befinden sich unter `db/supabase/Initial_Setup.md` und `db/supabase/Supabase_Usage.md`.
+
+## 6. Aktueller Implementierungsstand
+
+**Im Repository vorhanden:**
+- Prisma-Datenmodell mit 16 Tabellen
+- Initialmigration für PostgreSQL
+- Erweiterte CHECK-Constraints
+- UNIQUE-Indizes und Fremdschlüssel
+- Exclusion-Constraints für zeitliche Überschneidungen
+- Trigger für Buchungskapazitäten und Zertifizierungsvoraussetzungen
+- Trigger für die Verfügbarkeit von Tauchlehrern
+- Trigger für die Kundenkonsistenz bei Rechnungen
+- Aktivierung von Row Level Security
+
+**Noch zu prüfen beziehungsweise zu erweitern:**
+- Kapazitätskontrolle bei nachträglicher Änderung der maximalen Teilnehmerzahl
+- Zwingende Detailzuordnung für jede Ausrüstungsbelegung
+- Qualifikationsprüfung bei der Zuweisung von Tauchlehrern
+- Absicherung nachträglicher Änderungen an bereits abgerechneten Leistungen
+- Automatisierte Tests der Integritätsregeln und konkurrierender Transaktionen
+- Kontrollierte Übernahme des Schemas in die gemeinsame Zielumgebung
+
+Die Versionierung einer Migration belegt noch nicht, dass sie bereits auf jeder Ziel-Datenbank erfolgreich ausgeführt und getestet wurde.
+
+## 7. Weitere Projektphasen
+
+### Thema 1 – Datenbankwahl und Modellierung
+
+Entscheidung für PostgreSQL, Modellierung und Implementierung des relationalen Schemas sowie Umsetzung grundlegender und erweiterter Datenbankconstraints.
+
+### Thema 2 – Testdatengenerierung
+
+Erstellung geeigneter synthetischer Testdaten zur Untersuchung des Datenbankverhaltens.
+
+### Thema 3 – Last- und Performanceuntersuchungen
+
+Durchführung und Auswertung von Lasttests, SQL-Abfragen und datenbankbezogenen Performanceanalysen.
+
+Die Arbeiten an Thema 2 und Thema 3 sind eigenständige spätere Projektphasen.
+
+## 8. Weiterführende Projektdateien
+
+- [Prisma-Schema](db/prisma/schema.prisma)
+- [Initialmigration](db/prisma/migrations/20261027162418_init/migration.sql)
+- [Constraints und Trigger](db/prisma/migrations/20261027162424_constraints_and_triggers/migration.sql)
+- [Lokale Einrichtung](db/supabase/Initial_Setup.md)
+- [Supabase-Anwendung](db/supabase/Supabase_Usage.md)
+
+---
+
+**Projekt:** DiveManager / TauchDB  
 **Modul:** Advanced Databases  
-**Zieldatenbank:** PostgreSQL  
-**Projektumfang:** 15 relationale Tabellen  
-**Version:** 1.0 – Anforderungsanalyse
-
----
-
-## 1. Projektbeschreibung
-
-DiveManager ist ein datenbankgestütztes Verwaltungssystem für Tauchschulen.
-
-Ziel ist es, die organisatorischen und administrativen Abläufe einer Tauchschule zentral abzubilden. Dazu gehören Kundenverwaltung, Kursorganisation, Zertifizierungen, Tauchausflüge, Ausrüstungsverleih, Wartungen und Abrechnungen.
-
-Das System soll redundante Datenspeicherung vermeiden, Datenkonsistenz sicherstellen und typische Geschäftsprozesse einer Tauchschule unterstützen.
-
-Im Rahmen des Hochschulprojekts steht die **Konzeption und Implementierung einer relationalen Datenbank mit 15 Tabellen** im Vordergrund. Eine vollständige Benutzeroberfläche ist zunächst nicht Bestandteil des verpflichtenden Projektumfangs.
-
-## 2. Funktionale Anforderungen
-
-### FA-01: Kundenverwaltung
-
-Das System muss:
-- Kunden mit eindeutiger ID registrieren können.
-- Namen, Kontaktdaten und Registrierungsdatum speichern.
-- Bestehende Kundendaten ändern können.
-- Kunden anhand ihrer ID suchen können.
-- Die Buchungs- und Zertifizierungshistorie eines Kunden anzeigen können.
-
-**Geschäftsregel:** Jede Kursbuchung, Ausflugsanmeldung und Ausrüstungsvermietung muss einem Kunden zugeordnet sein.
-
-### FA-02: Verwaltung von Tauchlehrern
-
-Das System muss:
-- Tauchlehrer mit eindeutiger ID verwalten.
-- Namen, Kontaktdaten und Qualifikationsinformationen speichern.
-- Tauchlehrer zu Kursterminen und Tauchausflügen zuordnen können.
-- Die geplanten Einsätze eines Tauchlehrers abrufen können.
-
-**Geschäftsregel:** Ein Tauchlehrer darf nicht gleichzeitig für zwei zeitlich überlappende Veranstaltungen eingeteilt werden. Die Einteilung erfolgt in der ersten Version durch einen verantwortlichen Mitarbeiter.
-
-### FA-03: Kursmanagement
-
-Das System muss:
-- Unterschiedliche Kursarten verwalten.
-- Kursbezeichnungen, Beschreibungen und Preise speichern.
-- Voraussetzungen für die Kursteilnahme definieren können.
-- Konkrete Kurstermine mit Anfang, Ende, maximaler Teilnehmerzahl und Tauchlehrer verwalten.
-- Kursanmeldungen ermöglichen.
-- Anmeldungen stornieren können.
-- Erfolgreich abgeschlossene Kurse dokumentieren können.
-
-**Geschäftsregeln:**
-- Die maximale Teilnehmerzahl darf nicht überschritten werden.
-- Ein Kunde darf denselben Kurstermin nicht mehrfach aktiv buchen.
-- Ein Kurs darf nur gebucht werden, wenn die erforderliche Zertifizierung vorliegt.
-- Die Kapazitätsprüfung muss auch bei gleichzeitigen Buchungsversuchen zuverlässig funktionieren.
-
-### FA-04: Zertifizierungsverwaltung
-
-Das System muss:
-- Unterschiedliche Zertifikatstypen verwalten.
-- Zertifikate einzelnen Kunden zuordnen.
-- Ausstellungsdatum, Zertifikatsnummer und gegebenenfalls Gültigkeitsdatum speichern.
-- Kursvoraussetzungen anhand vorhandener Zertifikate überprüfen.
-- Zertifikate eines Kunden abrufen können.
-
-**Geschäftsregel:** Zertifikate müssen eindeutig zuordenbar sein. Abgelaufene Zertifikate dürfen nicht als gültige Voraussetzungen verwendet werden, sofern die jeweilige Zertifizierung eine Gültigkeitsfrist besitzt.
-
-### FA-05: Verwaltung von Tauchplätzen und Tauchausflügen
-
-Das System muss:
-- Tauchplätze mit Namen, Standort und maximal vorgesehener Tiefe verwalten.
-- Tauchausflüge mit Datum, Uhrzeit, Tauchplatz und Teilnehmerlimit anlegen.
-- Einen verantwortlichen Tauchlehrer beziehungsweise Guide zuweisen.
-- Kunden zu Tauchausflügen anmelden.
-- Teilnehmerlisten erstellen.
-- Ausflüge absagen und Buchungen stornieren können.
-
-**Geschäftsregeln:**
-- Die Teilnehmerkapazität darf nicht überschritten werden.
-- Ein Kunde darf nicht mehrfach aktiv für denselben Ausflug angemeldet sein.
-- Für Ausflüge kann eine Mindestzertifizierung hinterlegt werden.
-- Der verantwortliche Tauchlehrer darf keine zeitlichen Überschneidungen haben.
-
-### FA-06: Ausrüstungsverwaltung
-
-Das System muss:
-- Ausrüstungsgegenstände mit eindeutiger Inventarnummer speichern.
-- Gerätetyp, Hersteller, Modell und Zustand dokumentieren.
-- Verleihvorgänge einem Kunden und einem Zeitraum zuordnen.
-- Rückgaben erfassen.
-- Wartungen und Reparaturen dokumentieren.
-- Die aktuelle Verfügbarkeit eines Ausrüstungsgegenstandes ermitteln.
-
-**Geschäftsregeln:**
-- Ein Gegenstand darf nicht in überlappenden Zeiträumen mehrfach verliehen werden.
-- Defekte oder gesperrte Gegenstände dürfen nicht verliehen werden.
-- Während einer Wartung ist der Gegenstand nicht verleihbar.
-- Jeder Verleihvorgang benötigt ein Startdatum und ein geplantes Rückgabedatum.
-
-### FA-07: Rechnungs- und Zahlungsverwaltung
-
-Das System muss:
-- Rechnungen für Kursbuchungen, Ausflugsanmeldungen und Ausrüstungsvermietungen erfassen.
-- Rechnungen einem Kunden zuordnen.
-- Rechnungsnummer, Betrag, Rechnungsdatum und Fälligkeit speichern.
-- Eine oder mehrere Zahlungen pro Rechnung dokumentieren.
-- Offene und vollständig bezahlte Rechnungen ermitteln.
-
-**Geschäftsregeln:**
-- Jede Rechnung besitzt eine eindeutige Rechnungsnummer.
-- Zahlungsbeträge müssen positiv sein.
-- Zahlungen dürfen nicht ohne gültige Rechnung existieren.
-- Eine Rechnung bezieht sich in Version 1 genau auf eine kostenpflichtige Leistung. Sammelrechnungen mit mehreren Positionen sind vorerst ausgeschlossen.
-
-### FA-08: Auswertungen
-
-Die Datenbank soll folgende Auswertungen ermöglichen:
-- Anzahl aktiver Kunden
-- Gebuchte und verfügbare Kursplätze
-- Umsatz pro Monat
-- Offene Rechnungen
-- Anstehende Wartungen
-- Auslastung der Tauchlehrer
-- Beliebteste Kurse
-- Verfügbare Ausrüstungsgegenstände
-
-Die Auswertungen sollen über SQL-Abfragen beziehungsweise Views realisiert werden.
-
----
-
-## 3. Datenmodell – 15 Tabellen
-
-| Nr. | Tabelle | Inhalt |
-|---|---|---|
-| 1 | customers | Kundenstammdaten |
-| 2 | instructors | Tauchlehrer |
-| 3 | courses | Kursarten und Voraussetzungen |
-| 4 | course_sessions | Einzelne Kurstermine |
-| 5 | course_bookings | Anmeldungen zu Kursterminen |
-| 6 | certifications | Verfügbare Zertifizierungstypen |
-| 7 | customer_certifications | Erteilte Zertifikate |
-| 8 | dive_sites | Tauchplätze |
-| 9 | dive_trips | Organisierte Tauchausflüge |
-| 10 | trip_participants | Ausflugsanmeldungen |
-| 11 | equipment | Ausrüstungsinventar |
-| 12 | equipment_rentals | Ausrüstungsvermietungen |
-| 13 | equipment_maintenance | Wartungen und Reparaturen |
-| 14 | invoices | Rechnungen |
-| 15 | payments | Zahlungsvorgänge |
-
-### Wichtige Beziehungen
-
-- Ein Kunde kann mehrere Kursbuchungen besitzen (1:n).
-- Ein Kurstermin kann mehrere Kursbuchungen besitzen (1:n).
-- Ein Tauchlehrer kann mehrere Kurstermine betreuen (1:n).
-- Ein Kunde kann mehrere Zertifizierungen besitzen (n:m über customer_certifications).
-- Ein Tauchplatz kann mehreren Tauchausflügen zugeordnet sein (1:n).
-- Ein Tauchausflug kann mehrere Teilnehmer besitzen (n:m über trip_participants).
-- Ein Ausrüstungsgegenstand kann mehrfach vermietet werden (1:n).
-- Ein Ausrüstungsgegenstand kann mehrere Wartungseinträge besitzen (1:n).
-- Ein Kunde kann mehrere Rechnungen besitzen (1:n).
-- Eine Rechnung kann mehrere Zahlungen besitzen (1:n).
-
-Die Teilnahmevoraussetzungen eines Kurses werden in Version 1 über eine optionale erforderliche Zertifizierung in der Tabelle `courses` modelliert. Umfangreichere Abhängigkeiten zwischen mehreren Zertifikaten wären eine spätere Erweiterung.
-
-## 4. Nichtfunktionale Anforderungen
-
-**NFA-01 – Datenintegrität:** Primärschlüssel, Fremdschlüssel, UNIQUE-Constraints und CHECK-Constraints sichern die Konsistenz.
-
-**NFA-02 – Normalisierung:** Das Datenmodell soll mindestens die dritte Normalform (3NF) erfüllen, soweit fachlich sinnvoll.
-
-**NFA-03 – Transaktionssicherheit:** Kritische Prozesse, insbesondere Buchungen und Verleihvorgänge, müssen atomar und konkurrenzsicher ausgeführt werden.
-
-**NFA-04 – Performance:** Häufige Such- und Verknüpfungsoperationen sollen durch geeignete Indizes unterstützt werden.
-
-**NFA-05 – Erweiterbarkeit:** Die Datenbank soll eine spätere Erweiterung um Webanwendung, Kundenportal und mehrere Tauchschulen erlauben.
-
-**NFA-06 – Datenschutz:** Personenbezogene Daten sollen nur im erforderlichen Umfang gespeichert werden. Für den Prototyp werden ausschließlich fiktive Testdaten verwendet.
-
-**NFA-07 – Nachvollziehbarkeit:** Das SQL-Schema und die Datenbankobjekte müssen versioniert und anhand von Skripten reproduzierbar sein.
-
-## 5. Advanced-Database-Anforderungen
-
-Folgende technische Funktionen sollen umgesetzt beziehungsweise demonstriert werden:
-
-1. **Stored Function oder Procedure:** Transaktionssichere Buchung eines Kurses inklusive Kapazitätskontrolle.
-2. **Trigger:** Sicherstellung zusätzlicher Konsistenzregeln beim Ändern von Datensätzen.
-3. **Views:** Kursauslastung und offene Rechnungen.
-4. **Komplexe SQL-Abfragen:** Umsatzstatistiken, Rangfolgen und Auslastungsanalysen mittels JOIN, GROUP BY und gegebenenfalls Window Functions.
-5. **Indizes:** Optimierung häufig ausgeführter Abfragen.
-6. **Transaktionen:** Korrekte Behandlung gleichzeitiger Buchungen und sich überschneidender Verleihvorgänge.
-7. **Constraints:** Absicherung fachlicher Regeln direkt auf Datenbankebene.
-
-## 6. Abgrenzung des Projektumfangs
-
-**Für das Uni-Projekt vorgesehen:**
-- 15 normalisierte Tabellen
-- Vollständiges ER-Diagramm
-- PostgreSQL-Schema
-- Primär- und Fremdschlüssel
-- Definierte Geschäftsregeln
-- Realistische Testdaten
-- Beispielabfragen
-- Ausgewählte fortgeschrittene Datenbankfunktionen
-- Dokumentation und Präsentation
-
-**Zunächst nicht vorgesehen:**
-- Vollständige Webanwendung
-- Online-Zahlungsanbieter
-- Mobile App
-- Automatische Ausstellung offizieller Verbandszertifikate
-- Live-Wetterdaten oder externe Schnittstellen
-- Mandantenfähige Verwaltung mehrerer Tauchschulen
-- Produktivbetrieb mit echten Kundendaten
-
-Diese Funktionen können später für eine kommerzielle Version ergänzt werden.
-
-## 7. Akzeptanzkriterien
-
-Das Projekt gilt aus Datenbanksicht als erfolgreich umgesetzt, wenn:
-
-- Alle 15 Tabellen erstellt und mit Beziehungen verbunden sind.
-- Das ER-Diagramm mit dem implementierten Schema übereinstimmt.
-- Beispieldaten importiert werden können.
-- Kunden und Kurse angelegt werden können.
-- Kursbuchungen mit gültigen Voraussetzungen funktionieren.
-- Überbuchungen bei gleichzeitigen Buchungsversuchen verhindert werden.
-- Ausrüstungsverleih ohne zeitliche Doppelbelegung möglich ist.
-- Wartungszeiten beim Verleih berücksichtigt werden.
-- Rechnungen und zugehörige Zahlungen gespeichert werden.
-- Mindestens zwei aussagekräftige Views und mehrere komplexe SQL-Abfragen funktionieren.
-- SQL-Skripte die Datenbank reproduzierbar erstellen können.
-- Kritische Geschäftsregeln durch Positiv- und Negativtests überprüft wurden.
-
-## 8. Aufgabenverteilung bei drei Teammitgliedern
-
-**Person 1 – Kunden- und Kursmanagement**
-- Tabellen 1–5
-- Kursverwaltung und Buchungslogik
-- Kapazitätskontrolle
-- Dokumentation des eigenen Bereichs
-
-**Person 2 – Zertifizierungen und Tauchausflüge**
-- Tabellen 6–10
-- Zertifizierungsvoraussetzungen
-- Verwaltung der Ausflüge
-- ER-Modellierung der Zusammenhänge
-- Dokumentation des eigenen Bereichs
-
-**Person 3 – Ausrüstung und Finanzen**
-- Tabellen 11–15
-- Ausrüstungsverleih
-- Wartungsverwaltung
-- Rechnungen und Zahlungen
-- Dokumentation des eigenen Bereichs
-
-**Gemeinsame Aufgaben:**
-- Abstimmung von Fremdschlüsseln und Schnittstellen
-- Zusammenführung des ER-Diagramms
-- Integration der SQL-Skripte
-- Datenbanktests
-- Finale Dokumentation und Pitch
-
-Die Zuordnung der Personen erfolgt nach Absprache im Team.
-
-## 9. Nächster Meilenstein
-
-Für das nächste Meeting sollen folgende Ergebnisse vorliegen:
-
-1. Zieldatenbank PostgreSQL ausgewählt und begründet.
-2. 15 Tabellen einschließlich wesentlicher Attribute definiert.
-3. Primär- und Fremdschlüssel festgelegt.
-4. Vollständiges ER-Diagramm erstellt.
-5. Datenmodell nach Möglichkeit in PostgreSQL umgesetzt.
-6. Dokumentation von ungefähr fünf Seiten vorbereitet, mit erkennbaren Verantwortlichkeiten.
-7. Pro Person ein kurzer Status-Pitch (maximal fünf Minuten) mit erreichten und nicht erreichten Zielen vorbereitet.
-
-**Projektziel:** Eine konsistente, erweiterbare und fachlich nachvollziehbare Datenbank als Grundlage einer digitalen Tauchschulverwaltung entwickeln.
+**Datenbank:** PostgreSQL  
+**Aktueller Schemaumfang:** 16 Tabellen
