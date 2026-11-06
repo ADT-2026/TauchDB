@@ -8,14 +8,14 @@ ALTER TABLE "courses"
   ADD CONSTRAINT "courses_duration_chk" CHECK ("duration_days" > 0);
 
 ALTER TABLE "course_sessions"
-  ADD CONSTRAINT "course_sessions_time_chk"     CHECK ("end_time" > "start_time"),
+  ADD CONSTRAINT "course_sessions_time_chk"     CHECK ("end_at" > "start_at"),
   ADD CONSTRAINT "course_sessions_capacity_chk" CHECK ("max_participants" > 0);
 
 ALTER TABLE "dive_sites"
   ADD CONSTRAINT "dive_sites_depth_chk" CHECK ("max_depth_meters" > 0);
 
 ALTER TABLE "dive_trips"
-  ADD CONSTRAINT "dive_trips_time_chk"     CHECK ("end_time" > "start_time"),
+  ADD CONSTRAINT "dive_trips_time_chk"     CHECK ("end_at" > "start_at"),
   ADD CONSTRAINT "dive_trips_capacity_chk" CHECK ("max_participants" > 0),
   ADD CONSTRAINT "dive_trips_price_chk"    CHECK ("price" >= 0);
 
@@ -62,14 +62,14 @@ ALTER TABLE "course_sessions"
   ADD CONSTRAINT "course_sessions_no_instructor_overlap"
   EXCLUDE USING gist (
     "instructor_id" WITH =,
-    tstzrange("start_time", "end_time", '[)') WITH &&
+    tstzrange("start_at", "end_at", '[)') WITH &&
   ) WHERE ("status" <> 'cancelled');
 
 ALTER TABLE "dive_trips"
   ADD CONSTRAINT "dive_trips_no_instructor_overlap"
   EXCLUDE USING gist (
     "instructor_id" WITH =,
-    tstzrange("start_time", "end_time", '[)') WITH &&
+    tstzrange("start_at", "end_at", '[)') WITH &&
   ) WHERE ("status" <> 'cancelled');
 
 ALTER TABLE "customer_certifications"
@@ -98,14 +98,14 @@ BEGIN
   END IF;
 
   IF NEW.session_id IS NOT NULL THEN
-    SELECT cs.start_time, cs.max_participants, c.required_certification_id
+    SELECT cs.start_at, cs.max_participants, c.required_certification_id
       INTO v_start, v_max, v_req
     FROM public.course_sessions cs
     JOIN public.courses c ON c.id = cs.course_id
     WHERE cs.id = NEW.session_id
     FOR UPDATE OF cs;
   ELSIF NEW.trip_id IS NOT NULL THEN
-    SELECT dt.start_time, dt.max_participants, ds.required_certification_id
+    SELECT dt.start_at, dt.max_participants, ds.required_certification_id
       INTO v_start, v_max, v_req
     FROM public.dive_trips dt
     JOIN public.dive_sites ds ON ds.id = dt.site_id
@@ -171,13 +171,13 @@ BEGIN
     WHERE cs.instructor_id = NEW.instructor_id
       AND cs.status <> 'cancelled'
       AND NOT (TG_TABLE_NAME = 'course_sessions' AND cs.id = NEW.id)
-      AND tstzrange(cs.start_time, cs.end_time, '[)') && tstzrange(NEW.start_time, NEW.end_time, '[)')
+      AND tstzrange(cs.start_at, cs.end_at, '[)') && tstzrange(NEW.start_at, NEW.end_at, '[)')
   ) OR EXISTS (
     SELECT 1 FROM public.dive_trips dt
     WHERE dt.instructor_id = NEW.instructor_id
       AND dt.status <> 'cancelled'
       AND NOT (TG_TABLE_NAME = 'dive_trips' AND dt.id = NEW.id)
-      AND tstzrange(dt.start_time, dt.end_time, '[)') && tstzrange(NEW.start_time, NEW.end_time, '[)')
+      AND tstzrange(dt.start_at, dt.end_at, '[)') && tstzrange(NEW.start_at, NEW.end_at, '[)')
   ) THEN
     RAISE EXCEPTION 'Instructor % ist im Zeitraum bereits verplant', NEW.instructor_id
       USING ERRCODE = '23P01';
@@ -188,12 +188,12 @@ END;
 $$;
 
 CREATE TRIGGER course_sessions_instructor_availability
-BEFORE INSERT OR UPDATE OF instructor_id, start_time, end_time, status
+BEFORE INSERT OR UPDATE OF instructor_id, start_at, end_at, status
 ON public.course_sessions
 FOR EACH ROW EXECUTE FUNCTION public.enforce_instructor_availability();
 
 CREATE TRIGGER dive_trips_instructor_availability
-BEFORE INSERT OR UPDATE OF instructor_id, start_time, end_time, status
+BEFORE INSERT OR UPDATE OF instructor_id, start_at, end_at, status
 ON public.dive_trips
 FOR EACH ROW EXECUTE FUNCTION public.enforce_instructor_availability();
 
@@ -228,6 +228,96 @@ CREATE TRIGGER invoices_customer_check
 BEFORE INSERT OR UPDATE OF customer_id, booking_id, rental_id
 ON public.invoices
 FOR EACH ROW EXECUTE FUNCTION public.enforce_invoice_customer();
+
+
+CREATE OR REPLACE FUNCTION public.allocation_has_detail(p_id integer, p_type public."AllocationType")
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT CASE p_type
+    WHEN 'rental' THEN EXISTS (
+      SELECT 1 FROM public.equipment_rentals r WHERE r.allocation_id = p_id)
+    WHEN 'assignment' THEN EXISTS (
+      SELECT 1 FROM public.equipment_assignments a WHERE a.allocation_id = p_id)
+    WHEN 'maintenance' THEN EXISTS (
+      SELECT 1 FROM public.equipment_maintenance m WHERE m.allocation_id = p_id)
+    ELSE false
+  END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.enforce_allocation_detail()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+DECLARE
+  v_type public."AllocationType";
+BEGIN
+  SELECT a.allocation_type INTO v_type
+  FROM public.equipment_allocations a
+  WHERE a.id = NEW.id;
+
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+
+  IF NOT public.allocation_has_detail(NEW.id, v_type) THEN
+    RAISE EXCEPTION 'Allocation % (Typ %) hat keinen passenden Detail-Eintrag', NEW.id, v_type
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+CREATE CONSTRAINT TRIGGER equipment_allocations_detail_required
+AFTER INSERT OR UPDATE OF allocation_type
+ON public.equipment_allocations
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION public.enforce_allocation_detail();
+
+CREATE OR REPLACE FUNCTION public.enforce_detail_keeps_allocation_valid()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.equipment_allocations a
+    WHERE a.id = OLD.allocation_id
+      AND NOT public.allocation_has_detail(a.id, a.allocation_type)
+  ) THEN
+    RAISE EXCEPTION 'Allocation % würde ohne Detail-Eintrag zurückbleiben', OLD.allocation_id
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NULL;
+END;
+$$;
+
+CREATE CONSTRAINT TRIGGER equipment_rentals_keep_allocation
+AFTER DELETE OR UPDATE OF allocation_id
+ON public.equipment_rentals
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION public.enforce_detail_keeps_allocation_valid();
+
+CREATE CONSTRAINT TRIGGER equipment_assignments_keep_allocation
+AFTER DELETE OR UPDATE OF allocation_id
+ON public.equipment_assignments
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION public.enforce_detail_keeps_allocation_valid();
+
+CREATE CONSTRAINT TRIGGER equipment_maintenance_keep_allocation
+AFTER DELETE OR UPDATE OF allocation_id
+ON public.equipment_maintenance
+DEFERRABLE INITIALLY DEFERRED
+FOR EACH ROW EXECUTE FUNCTION public.enforce_detail_keeps_allocation_valid();
 
 ALTER TABLE "customers"                 ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "instructors"               ENABLE ROW LEVEL SECURITY;

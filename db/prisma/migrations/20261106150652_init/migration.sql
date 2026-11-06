@@ -87,8 +87,8 @@ CREATE TABLE "course_sessions" (
     "id" SERIAL NOT NULL,
     "course_id" INTEGER NOT NULL,
     "instructor_id" INTEGER NOT NULL,
-    "start_time" TIMESTAMPTZ(3) NOT NULL,
-    "end_time" TIMESTAMPTZ(3) NOT NULL,
+    "start_at" TIMESTAMPTZ(3) NOT NULL,
+    "end_at" TIMESTAMPTZ(3) NOT NULL,
     "max_participants" INTEGER NOT NULL,
     "status" "ScheduleStatus" NOT NULL DEFAULT 'planned',
 
@@ -112,8 +112,8 @@ CREATE TABLE "dive_trips" (
     "id" SERIAL NOT NULL,
     "site_id" INTEGER NOT NULL,
     "instructor_id" INTEGER NOT NULL,
-    "start_time" TIMESTAMPTZ(3) NOT NULL,
-    "end_time" TIMESTAMPTZ(3) NOT NULL,
+    "start_at" TIMESTAMPTZ(3) NOT NULL,
+    "end_at" TIMESTAMPTZ(3) NOT NULL,
     "max_participants" INTEGER NOT NULL,
     "price" DECIMAL(10,2) NOT NULL,
     "status" "ScheduleStatus" NOT NULL DEFAULT 'planned',
@@ -240,7 +240,7 @@ CREATE INDEX "courses_required_certification_id_idx" ON "courses"("required_cert
 CREATE INDEX "course_sessions_course_id_idx" ON "course_sessions"("course_id");
 
 -- CreateIndex
-CREATE INDEX "course_sessions_instructor_id_start_time_idx" ON "course_sessions"("instructor_id", "start_time");
+CREATE INDEX "course_sessions_instructor_id_start_at_idx" ON "course_sessions"("instructor_id", "start_at");
 
 -- CreateIndex
 CREATE INDEX "dive_sites_required_certification_id_idx" ON "dive_sites"("required_certification_id");
@@ -249,7 +249,7 @@ CREATE INDEX "dive_sites_required_certification_id_idx" ON "dive_sites"("require
 CREATE INDEX "dive_trips_site_id_idx" ON "dive_trips"("site_id");
 
 -- CreateIndex
-CREATE INDEX "dive_trips_instructor_id_start_time_idx" ON "dive_trips"("instructor_id", "start_time");
+CREATE INDEX "dive_trips_instructor_id_start_at_idx" ON "dive_trips"("instructor_id", "start_at");
 
 -- CreateIndex
 CREATE INDEX "bookings_session_id_idx" ON "bookings"("session_id");
