@@ -3,5 +3,8 @@
     "dotenv": "^18.0.9",
     "prisma": "^7.10.1",
     "supabase": "^2.122.0"
+  },
+  "scripts": {
+    "db:rebuild": "rm -rf prisma/migrations && npx prisma migrate reset --force --skip-seed && npx prisma migrate dev --create-only --name init && sleep 1 && mkdir -p prisma/migrations/$(date -u +%Y%m%d%H%M%S)_constraints && cp prisma/constraints.sql prisma/migrations/$(date -u +%Y%m%d%H%M%S)_constraints/migration.sql && npx prisma migrate reset --force"
   }
 }

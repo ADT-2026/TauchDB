@@ -109,13 +109,15 @@ model InstructorCertification {
   id               Int       @id @default(autoincrement())
   instructor_id    Int
   certification_id Int
+  certificate_number String
   issued_at        DateTime  @db.Date
   expires_at       DateTime? @db.Date
 
   instructor    Instructor    @relation(fields: [instructor_id], references: [id])
   certification Certification @relation(fields: [certification_id], references: [id])
 
-  @@unique([instructor_id, certification_id])
+  @@unique([certification_id, certificate_number])
+  @@index([instructor_id, certification_id])
   @@map("instructor_certifications")
 }
 
