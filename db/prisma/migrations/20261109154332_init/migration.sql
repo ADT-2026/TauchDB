@@ -64,6 +64,7 @@ CREATE TABLE "instructor_certifications" (
     "id" SERIAL NOT NULL,
     "instructor_id" INTEGER NOT NULL,
     "certification_id" INTEGER NOT NULL,
+    "certificate_number" TEXT NOT NULL,
     "issued_at" DATE NOT NULL,
     "expires_at" DATE,
 
@@ -231,7 +232,10 @@ CREATE INDEX "customer_certifications_customer_id_certification_id_idx" ON "cust
 CREATE UNIQUE INDEX "customer_certifications_certification_id_certificate_number_key" ON "customer_certifications"("certification_id", "certificate_number");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "instructor_certifications_instructor_id_certification_id_key" ON "instructor_certifications"("instructor_id", "certification_id");
+CREATE INDEX "instructor_certifications_instructor_id_certification_id_idx" ON "instructor_certifications"("instructor_id", "certification_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "instructor_certifications_certification_id_certificate_numb_key" ON "instructor_certifications"("certification_id", "certificate_number");
 
 -- CreateIndex
 CREATE INDEX "courses_required_certification_id_idx" ON "courses"("required_certification_id");

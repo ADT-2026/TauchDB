@@ -80,6 +80,14 @@ ALTER TABLE "customer_certifications"
     daterange("issued_at", COALESCE("expires_at" + 1, 'infinity'::date), '[)') WITH &&
   );
 
+ALTER TABLE "instructor_certifications"
+  ADD CONSTRAINT "instructor_certifications_no_overlap"
+  EXCLUDE USING gist (
+    "instructor_id" WITH =,
+    "certification_id" WITH =,
+    daterange("issued_at", COALESCE("expires_at" + 1, 'infinity'::date), '[)') WITH &&
+  );
+
 CREATE OR REPLACE FUNCTION public.enforce_booking_rules()
 RETURNS trigger
 LANGUAGE plpgsql
