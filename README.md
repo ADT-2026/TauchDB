@@ -218,6 +218,11 @@ Entscheidung für PostgreSQL, Modellierung und Implementierung des relationalen 
 
 Erstellung geeigneter synthetischer Testdaten zur Untersuchung des Datenbankverhaltens.
 
+Ein KI-erstellter SQL-Generator für zunächst 1.000 Kunden und zusammenhängende Daten
+in allen 16 Tabellen steht unter [KI-Massendaten](db/prisma/AI_Massendaten.md).
+Nach dem lokalen Start und Anwenden der Migrationen: `cd db && npm run db:seed:ai`.
+Die wiederholbare Prüfung erfolgt mit `npm run db:check:ai`.
+
 ### Thema 3 – Last- und Performanceuntersuchungen
 
 Durchführung und Auswertung von Lasttests, SQL-Abfragen und datenbankbezogenen Performanceanalysen.
