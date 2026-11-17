@@ -1,5 +1,9 @@
 # Massendaten mit KI
 
+Eine Bewertung nach Realismus, Korrektheit, Edge Cases, Constraints, Anzahl,
+Erstellungsaufwand, Schemaänderungen und Coverage steht in der
+[Analyse der KI-Testdaten](AI_Massendaten_Analyse.md).
+
 Dieser Versuch verwendet ein **von KI geschriebenes SQL-Skript**. PostgreSQL erzeugt die
 Datensätze durch Schleifen und feste Regeln. Es werden keine Datenbibliotheken wie Faker
 und keine weiteren KI-Aufrufe zur Laufzeit benötigt. Das ist für die Projektauswertung
