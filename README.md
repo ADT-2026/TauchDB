@@ -223,6 +223,12 @@ in allen 16 Tabellen steht unter [KI-Massendaten](db/prisma/AI_Massendaten.md).
 Nach dem lokalen Start und Anwenden der Migrationen: `cd db && npm run db:seed:ai`.
 Die wiederholbare Prüfung erfolgt mit `npm run db:check:ai`.
 
+Zusätzlich liegt ein [direkt von der KI ausgeschriebener JSON-Datensatz](db/data/ai-direct.json)
+mit 1.000 Kunden und insgesamt 1.137 Zeilen vor. Er lässt sich aus `db/` mit
+`npm run db:json:check` prüfen und mit `npm run db:json:import` zusätzlich lokal
+importieren. Format, Unterschiede zum SQL-Versuch und Dry-Run sind in der
+[Massendaten-Dokumentation](db/prisma/AI_Massendaten.md#direkte-json-generierung) beschrieben.
+
 ### Thema 3 – Last- und Performanceuntersuchungen
 
 Durchführung und Auswertung von Lasttests, SQL-Abfragen und datenbankbezogenen Performanceanalysen.

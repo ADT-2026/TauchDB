@@ -4,6 +4,9 @@ Eine Bewertung nach Realismus, Korrektheit, Edge Cases, Constraints, Anzahl,
 Erstellungsaufwand, Schemaänderungen und Coverage steht in der
 [Analyse der KI-Testdaten](AI_Massendaten_Analyse.md).
 
+Zusätzlich zum SQL-Generator gibt es seit 22.11.2026 einen **direkt von der KI
+ausgeschriebenen JSON-Datensatz**. Siehe [Direkte JSON-Generierung](#direkte-json-generierung).
+
 Dieser Versuch verwendet ein **von KI geschriebenes SQL-Skript**. PostgreSQL erzeugt die
 Datensätze durch Schleifen und feste Regeln. Es werden keine Datenbibliotheken wie Faker
 und keine weiteren KI-Aufrufe zur Laufzeit benötigt. Das ist für die Projektauswertung
@@ -159,3 +162,128 @@ keine laufende KI-Inferenz oder direkte Generierung jedes einzelnen Datensatzes.
 
 Als Kontext müssen `schema.prisma` und die beiden `migration.sql`-Dateien mitgegeben
 werden: Das Prisma-Schema allein enthält nicht alle Integritätsregeln.
+
+## Direkte JSON-Generierung
+
+Die zusätzliche Datei [ai-direct.json](../data/ai-direct.json) enthält normale
+JSON-Objekte: Metadaten unter `metadata` und pro Datenbanktabelle ein Array unter
+`tables`. Sämtliche fachlichen Werte wurden direkt von der KI als konkrete
+JSON-Literale geschrieben. Die Daten stammen weder aus dem SQL-Generator noch
+aus einem Datenbankexport oder einer Library wie Faker.
+
+Die wortwörtliche kompakte Ausgangsfassung steht in
+[ai-direct.rows.json](../data/ai-direct.rows.json). Dort werden Spaltennamen und
+Zeilenwerte getrennt gespeichert. `defaults` enthält explizite gemeinsame Werte,
+hier den Registrierungszeitpunkt der Kunden. Die Umwandlung in normale Objekte
+ordnet ausschließlich diese vorhandenen Werte den Spaltennamen zu; sie berechnet
+keine Namen, E-Mails, Termine oder zusätzlichen Datensätze. Beide Fassungen werden
+auf inhaltliche Gleichheit geprüft. Das Hilfsskript ist ein Prüfer und Importer,
+kein Testdatengenerator.
+
+Der Namensraum lautet `ai-direct-json-v1`, die synthetischen E-Mail-Adressen enden
+auf `@json.invalid`. Stichtag ist **22.11.2026, 12:00 Uhr Europe/Berlin**.
+
+| Tabelle | Zeilen |
+| --- | ---: |
+| customers | 1.000 |
+| instructors | 4 |
+| certifications | 2 |
+| customer_certifications | 16 |
+| instructor_certifications | 7 |
+| courses | 3 |
+| course_sessions | 6 |
+| dive_sites | 3 |
+| dive_trips | 6 |
+| bookings | 30 |
+| equipment | 12 |
+| equipment_allocations | 14 |
+| equipment_rentals | 7 |
+| equipment_assignments | 4 |
+| equipment_maintenance | 3 |
+| invoices | 20 |
+| **Gesamt** | **1.137** |
+
+Es gibt somit wieder 1.000 Kunden, aber ein bewusst kleineres zusammenhängendes
+Szenario für die übrigen Tabellen. Viele Kunden haben keine Buchungen; einige
+haben mehrere. Dieser Datensatz ist **nicht mengen- oder verteilungsgleich** mit
+den 7.721 Zeilen des SQL-Versuchs. Ein unmittelbarer Vergleich der Importzeiten
+wäre daher kein fairer Methodenvergleich. Auch hier gibt es wiederholte Namen,
+keine Telefonnummern und keine Geburtsdaten; höhere Realitätsnähe oder umfassende
+Abdeckung wird nicht behauptet.
+
+Gezielt enthaltene gültige Randfälle:
+
+- Ein Kundenzertifikat läuft am Ausflugstag ab und gilt noch an diesem Tag.
+- Ein altes Zertifikat endet am 31.12.; die Erneuerung beginnt am 01.01.
+- Eine stornierte und eine bestätigte Buchung desselben Kunden für denselben Kurs.
+- Eine stornierte Veranstaltung überlappt einen aktiven Ausflug desselben Lehrers.
+- Ein Kurs endet genau zu Beginn des nächsten Ausflugs desselben Lehrers.
+- Eine Ausrüstungszuweisung endet genau zu Beginn einer Vermietung desselben Artikels.
+- Stornierte und aktive Ausrüstungsbelegungen überlappen zulässigerweise.
+- Kostenlose Miete und kostenlose Wartung sowie Rechnungen mit Betrag 0.
+- Inaktiver Lehrer und ausgemusterte Ausrüstung ohne aktive Einplanung.
+- Bezahlte und offene Rechnungen, vergangene und geplante Veranstaltungen.
+
+Diese positiven Randfälle ersetzen keine gezielten Negativtests und keine
+Nebenläufigkeitstests. Das alte SQL-Prüfskript und die ursprüngliche Analyse
+beziehen sich weiterhin ausschließlich auf `ai-v1`.
+
+### JSON prüfen und lokal importieren
+
+Voraussetzung: Python 3.9+; für den Datenbankteil Docker und die bereits migrierte
+lokale Supabase-Instanz. Aus `db/`:
+
+```sh
+# Offline: JSON, Übereinstimmung mit den Literalen, Schema und Beziehungen prüfen
+npm run db:json:check
+
+# Optional: normale JSON-Objekte verlustfrei aus den ausgeschriebenen Zeilen packen
+npm run db:json:expand
+
+# Datenbank-Constraints testen; alle Inserts werden anschließend zurückgerollt
+npm run db:json:dry-run
+
+# Zusätzlich zum bisherigen Datensatz dauerhaft lokal importieren
+npm run db:json:import
+```
+
+Der Offline-Prüfer kontrolliert unter anderem Pflichtfelder, Datentypen, Enum-Werte,
+Referenzen, eindeutige Schlüssel, Zertifikatszeiträume, Voraussetzungen,
+Teilnehmerkapazitäten, Überschneidungen, Belegungsdetails und Rechnungskonsistenz.
+Der Datenbanktest prüft zusätzlich die tatsächlich installierten PostgreSQL-Regeln.
+Import und Dry-Run verwenden dieselbe SQL-Übersetzung; sie unterscheiden sich
+durch `COMMIT` bzw. `ROLLBACK` am Ende. Sequenzen können auch nach einem Dry-Run
+weitergezählt haben.
+
+Beim Import werden die IDs aus dem JSON als lokale Referenzen behandelt und über
+die normalen Datenbanksequenzen auf freie IDs abgebildet. Das erlaubt die
+Koexistenz mit `ai-v1`, ohne bestehende Zeilen zu überschreiben. Alle Fremdschlüssel
+werden entsprechend umgeschlüsselt. Es werden keine Constraints oder Trigger
+deaktiviert. Die verzögerten Prüfungen müssen vor dem Commit bestehen. Ein
+erneuter Import desselben E-Mail-Namensraums wird abgewiesen. Die JSON-Datei selbst
+enthält weiterhin die ursprünglichen lokalen IDs.
+
+Der Importer verwendet ausschließlich den lokalen Docker-Container
+`supabase_db_db` und keine Cloud-Verbindungswerte aus `.env`. Bei abweichendem
+Projektcontainer kann `SUPABASE_DB_CONTAINER` gesetzt werden. Es werden weder
+Schemaänderungen noch Löschungen bestehender Daten durchgeführt.
+
+Der Offline-Prüfer wurde am 22.11.2026 außerdem mit fünf temporär veränderten Kopien
+geprüft: doppelte E-Mail, ungültiger Fremdschlüssel, Zertifikatsablauf vor dem
+Ausflug, eine Minute Ausrüstungsüberschneidung und falscher Rechnungsbetrag wurden
+jeweils abgewiesen. Diese absichtlich ungültigen Kopien sind kein Bestandteil des
+JSON-Datensatzes und wurden nicht importiert.
+
+### Ergebnis des JSON-Versuchs (22.11.2026)
+
+Der Dry-Run bestand mit aktiven Datenbank-Constraints und wurde zurückgerollt.
+Danach waren weiterhin 1.000 SQL-Kunden und null JSON-Kunden vorhanden. Der
+anschließende dauerhafte Import aller 1.137 JSON-Zeilen war erfolgreich,
+einschließlich der verzögerten Belegungsprüfungen und Mengenprüfung je Tabelle.
+Eine Wiederholung wurde erwartungsgemäß vor weiteren Inserts abgewiesen.
+
+Die lokale Datenbank enthält jetzt zusätzlich 1.000 Kunden unter `@json.invalid`,
+30 zugehörige Buchungen und 20 Rechnungen. Der alte Datensatz `ai-v1` wurde erneut
+geprüft: unverändert 7.721 Zeilen und null Abweichungen in allen neun Fachprüfungen.
+Nach dem dauerhaften Import werden sowohl ein weiterer Import als auch ein
+Dry-Run mit demselben Namensraum abgewiesen; die Offline-Prüfung bleibt wiederholbar.

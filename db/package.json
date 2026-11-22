@@ -5,6 +5,10 @@
     "supabase": "^2.122.0"
   },
   "scripts": {
+    "db:json:expand": "python3 scripts/db-json.py --expand",
+    "db:json:check": "python3 scripts/db-json.py --check",
+    "db:json:dry-run": "python3 scripts/db-json.py --dry-run",
+    "db:json:import": "python3 scripts/db-json.py --import",
     "db:seed:ai": "bash scripts/db-seed-ai.sh",
     "db:check:ai": "bash scripts/db-seed-ai.sh --check",
     "db:rebuild": "rm -rf prisma/migrations && npx prisma migrate reset --force && npx prisma migrate dev --create-only --name init && sleep 1 && mkdir -p prisma/migrations/$(date -u +%Y%m%d%H%M%S)_constraints_and_triggers && cp prisma/constraints_and_triggers.sql prisma/migrations/$(date -u +%Y%m%d%H%M%S)_constraints_and_triggers/migration.sql && npx prisma migrate reset --force",
