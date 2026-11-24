@@ -1,0 +1,326 @@
+{
+  "date": "2026-11-24",
+  "postgresql": "17.11",
+  "import_with_original_constraints": "passed",
+  "verify_sql": "passed",
+  "counts": {
+    "certifications": 10,
+    "customers": 28,
+    "instructors": 5,
+    "customer_certifications": 46,
+    "instructor_certifications": 15,
+    "courses": 7,
+    "dive_sites": 8,
+    "course_sessions": 17,
+    "dive_trips": 12,
+    "bookings": 105,
+    "equipment": 36,
+    "equipment_allocations": 89,
+    "equipment_rentals": 15,
+    "equipment_assignments": 67,
+    "equipment_maintenance": 7,
+    "invoices": 111
+  },
+  "total_rows": 578,
+  "second_import_rejected": true,
+  "independent_offline_validation": true,
+  "common_database_negative_tests_passed": 37,
+  "negative_tests": [
+    {
+      "name": "courses_price_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "courses_price_chk",
+      "actual_constraint": "courses_price_chk",
+      "passed": true
+    },
+    {
+      "name": "courses_duration_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "courses_duration_chk",
+      "actual_constraint": "courses_duration_chk",
+      "passed": true
+    },
+    {
+      "name": "course_sessions_time_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "course_sessions_time_chk",
+      "actual_constraint": "course_sessions_time_chk",
+      "passed": true
+    },
+    {
+      "name": "course_sessions_capacity_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "course_sessions_capacity_chk",
+      "actual_constraint": "course_sessions_capacity_chk",
+      "passed": true
+    },
+    {
+      "name": "dive_sites_depth_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "dive_sites_depth_chk",
+      "actual_constraint": "dive_sites_depth_chk",
+      "passed": true
+    },
+    {
+      "name": "dive_trips_time_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "dive_trips_time_chk",
+      "actual_constraint": "dive_trips_time_chk",
+      "passed": true
+    },
+    {
+      "name": "dive_trips_capacity_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "dive_trips_capacity_chk",
+      "actual_constraint": "dive_trips_capacity_chk",
+      "passed": true
+    },
+    {
+      "name": "dive_trips_price_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "dive_trips_price_chk",
+      "actual_constraint": "dive_trips_price_chk",
+      "passed": true
+    },
+    {
+      "name": "bookings_target_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "bookings_target_chk",
+      "actual_constraint": "bookings_target_chk",
+      "passed": true
+    },
+    {
+      "name": "bookings_passed_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "bookings_passed_chk",
+      "actual_constraint": "bookings_passed_chk",
+      "passed": true
+    },
+    {
+      "name": "customer_certifications_dates_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "customer_certifications_dates_chk",
+      "actual_constraint": "customer_certifications_dates_chk",
+      "passed": true
+    },
+    {
+      "name": "instructor_certifications_dates_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "instructor_certifications_dates_chk",
+      "actual_constraint": "instructor_certifications_dates_chk",
+      "passed": true
+    },
+    {
+      "name": "equipment_allocations_time_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "equipment_allocations_time_chk",
+      "actual_constraint": "equipment_allocations_time_chk",
+      "passed": true
+    },
+    {
+      "name": "equipment_rentals_type_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "equipment_rentals_type_chk",
+      "actual_constraint": "equipment_rentals_type_chk",
+      "passed": true
+    },
+    {
+      "name": "equipment_rentals_price_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "equipment_rentals_price_chk",
+      "actual_constraint": "equipment_rentals_price_chk",
+      "passed": true
+    },
+    {
+      "name": "equipment_assignments_type_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "equipment_assignments_type_chk",
+      "actual_constraint": "equipment_assignments_type_chk",
+      "passed": true
+    },
+    {
+      "name": "equipment_maintenance_type_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "equipment_maintenance_type_chk",
+      "actual_constraint": "equipment_maintenance_type_chk",
+      "passed": true
+    },
+    {
+      "name": "equipment_maintenance_cost_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "equipment_maintenance_cost_chk",
+      "actual_constraint": "equipment_maintenance_cost_chk",
+      "passed": true
+    },
+    {
+      "name": "invoices_total_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "invoices_total_chk",
+      "actual_constraint": "invoices_total_chk",
+      "passed": true
+    },
+    {
+      "name": "invoices_dates_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "invoices_dates_chk",
+      "actual_constraint": "invoices_dates_chk",
+      "passed": true
+    },
+    {
+      "name": "invoices_number_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "invoices_number_chk",
+      "actual_constraint": "invoices_number_chk",
+      "passed": true
+    },
+    {
+      "name": "invoices_source_chk",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": "invoices_source_chk",
+      "actual_constraint": "invoices_source_chk",
+      "passed": true
+    },
+    {
+      "name": "foreign_key",
+      "expected": "23503",
+      "actual": "23503",
+      "expected_constraint": "courses_required_certification_id_fkey",
+      "actual_constraint": "courses_required_certification_id_fkey",
+      "passed": true
+    },
+    {
+      "name": "enum",
+      "expected": "22P02",
+      "actual": "22P02",
+      "expected_constraint": null,
+      "actual_constraint": null,
+      "passed": true
+    },
+    {
+      "name": "email_unique",
+      "expected": "23505",
+      "actual": "23505",
+      "expected_constraint": "customers_email_lower_key",
+      "actual_constraint": "customers_email_lower_key",
+      "passed": true
+    },
+    {
+      "name": "booking_unique",
+      "expected": "23505",
+      "actual": "23505",
+      "expected_constraint": "bookings_active_session_key",
+      "actual_constraint": "bookings_active_session_key",
+      "passed": true
+    },
+    {
+      "name": "equipment_overlap",
+      "expected": "23P01",
+      "actual": "23P01",
+      "expected_constraint": "equipment_allocations_no_overlap",
+      "actual_constraint": "equipment_allocations_no_overlap",
+      "passed": true
+    },
+    {
+      "name": "certificate_overlap",
+      "expected": "23P01",
+      "actual": "23P01",
+      "expected_constraint": "customer_certifications_no_overlap",
+      "actual_constraint": "customer_certifications_no_overlap",
+      "passed": true
+    },
+    {
+      "name": "instructor_certificate_overlap",
+      "expected": "23P01",
+      "actual": "23P01",
+      "expected_constraint": "instructor_certifications_no_overlap",
+      "actual_constraint": "instructor_certifications_no_overlap",
+      "passed": true
+    },
+    {
+      "name": "instructor_cross_type_overlap",
+      "expected": "23P01",
+      "actual": "23P01",
+      "expected_constraint": null,
+      "actual_constraint": null,
+      "passed": true
+    },
+    {
+      "name": "invoice_customer_trigger",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": null,
+      "actual_constraint": null,
+      "passed": true
+    },
+    {
+      "name": "deferred_detail_delete",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": null,
+      "actual_constraint": null,
+      "passed": true
+    },
+    {
+      "name": "capacity_trigger",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": null,
+      "actual_constraint": null,
+      "passed": true
+    },
+    {
+      "name": "qualification_trigger",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": null,
+      "actual_constraint": null,
+      "passed": true
+    },
+    {
+      "name": "deferred_detail_insert",
+      "expected": "23514",
+      "actual": "23514",
+      "expected_constraint": null,
+      "actual_constraint": null,
+      "passed": true
+    },
+    {
+      "name": "session_instructor_exclusion",
+      "expected": "23P01",
+      "actual": "23P01",
+      "expected_constraint": "course_sessions_no_instructor_overlap",
+      "actual_constraint": "course_sessions_no_instructor_overlap",
+      "passed": true
+    },
+    {
+      "name": "trip_instructor_exclusion",
+      "expected": "23P01",
+      "actual": "23P01",
+      "expected_constraint": "dive_trips_no_instructor_overlap",
+      "actual_constraint": "dive_trips_no_instructor_overlap",
+      "passed": true
+    }
+  ]
+}
